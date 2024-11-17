@@ -96,3 +96,5 @@ venv/
 *.temp
 
 chat_data.db
+
+.streamlit/

@@ -1,5 +1,6 @@
 import os
 import json
+import streamlit as st
 from dotenv import load_dotenv
 from langchain_ibm import WatsonxLLM
 from ibm_watson_machine_learning.metanames import GenTextParamsMetaNames as GenParams
@@ -15,10 +16,12 @@ from langchain.agents import Tool, initialize_agent
 load_dotenv()
 
 credentials = {
-    "url": os.getenv("WATSON_URL", "https://us-south.ml.cloud.ibm.com"),
-    "apikey": os.getenv("WATSON_API_KEY"),
+    # Fetch URL from the 'watson' section
+    "url": st.secrets["watson"]["WATSON_URL"],
+    # Fetch API key from the 'watson' section
+    "apikey": st.secrets["watson"]["WATSON_API_KEY"],
 }
-project_id = os.getenv("WATSON_PROJECT_ID")
+project_id = st.secrets["watson"]["WATSON_PROJECT_ID"]
 
 # Initialize the WatsonxLLM
 llm = WatsonxLLM(
