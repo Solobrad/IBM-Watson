@@ -11,7 +11,7 @@ init_db()
 st.title("Employee Satisfaction Chatbot")
 st.subheader("Monitor employee mood and challenges with ease.")
 
-# Session state for chat history
+# Session state for chat history, user name, and other flags
 if "messages" not in st.session_state:
     st.session_state["messages"] = []
 
@@ -34,6 +34,18 @@ def clean_ai_response(response: str) -> str:
         response = response.replace("Assistant:", "").strip()
     return response
 
+
+def clear_chat():
+    """Clear chat history and reset session state."""
+    st.session_state["messages"] = []
+    st.session_state["name"] = None
+    st.session_state["greeting_sent"] = False
+    st.session_state["initial_prompt_sent"] = False
+
+
+# Add the Clear Chat button
+if st.button("Clear Chat"):
+    clear_chat()
 
 # Step 1: Prompt for user name with a greeting exchange
 if st.session_state["name"] is None:
@@ -130,18 +142,21 @@ if st.session_state["name"]:
         else:
             st.warning("No conversation data available to analyze!")
 
-st.write("### Stored Analysis Data")
+col1, col2 = st.columns(2)
 
-# Fetch data from the database
-analysis_data = fetch_analysis()
+with col1:
+    st.write("### Stored Analysis Data")
 
-if analysis_data:
-    # Display data in tabular form
-    df = pd.DataFrame(analysis_data, columns=["ID", "Name", "Satisfaction"])
-    st.dataframe(df)
+    analysis_data = fetch_analysis()
 
-    # Plot bar chart
-    satisfaction_counts = df["Satisfaction"].value_counts()
-    st.bar_chart(satisfaction_counts)
-else:
-    st.warning("No analysis data available!")
+    if analysis_data:
+        df = pd.DataFrame(analysis_data, columns=["ID", "Name", "Satisfaction"])
+        st.dataframe(df)
+    else:
+        st.warning("No analysis data available!")
+
+with col2:
+    if analysis_data:
+        st.write("### Satisfaction Visualization")
+        satisfaction_counts = df["Satisfaction"].value_counts()
+        st.bar_chart(satisfaction_counts)
