@@ -101,11 +101,13 @@ def sanitize_and_parse_json(response: str):
     except json.JSONDecodeError as e:
         return {"error": f"JSON parsing failed: {str(e)}", "raw_response": response}
 
+
 # Function for analysis
-def analyze_chat_and_rate(conversation):
+def analyze_conversation_tool(conversation):
     """Analyze the conversation JSON to determine satisfaction."""
     # Format the conversation as input text
-    messages = [f"Human: {msg['Human']} AI: {msg['AI']}" for msg in conversation]
+    messages = [
+        f"Human: {msg['Human']} AI: {msg['AI']}" for msg in conversation]
     input_text = "\n".join(messages)
 
     # Combine the prompt and input text
@@ -116,10 +118,18 @@ def analyze_chat_and_rate(conversation):
         2. Determine the satisfaction level as one of the following: Bad, Average, Good.
         3. Extract the employee's name if mentioned, otherwise leave it blank.
 
-        JUST Output a JSON with the following format:
+        Below are examples to guide you:
+
+        "I’m so looking forward to our vacation trip."
+        "Satisfaction": "Good"
+
+        "What a rough day, these tasks are really overwhelming."
+        "Satisfaction": "Bad"
+
+        JUST Output a **SINGLE** JSON with the following format:
         {{
-            "name_of_employee": "<employee_name>",
-            "satisfaction": "<Bad, Average, or Good>"
+            "name_of_employee": "<>",
+            "satisfaction": "<>"
         }}
 
         Conversation:
@@ -131,3 +141,13 @@ def analyze_chat_and_rate(conversation):
 
     # Sanitize and parse the response
     return sanitize_and_parse_json(response)
+
+
+# Function to analyze and generate satisfaction JSON
+def analyze_chat_and_rate(chat_json):
+    """Takes the conversation JSON and returns satisfaction rating."""
+    try:
+        analysis = analyze_conversation_tool(chat_json)
+        return analysis
+    except Exception as e:
+        return {"error": str(e)}
