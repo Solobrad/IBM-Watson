@@ -95,14 +95,27 @@ def predict(human_msg: str, session_id: str = "default_session"):
 
 
 def sanitize_and_parse_json(response: str):
+    if not response or not response.strip():
+        return {"error": "Empty response from the LLM", "raw_response": response}
+
     try:
         # Attempt to find the JSON object in the response
         start = response.find("{")
         end = response.rfind("}") + 1
         json_str = response[start:end]
-        return json.loads(json_str)
-    except json.JSONDecodeError as e:
-        return {"error": f"JSON parsing failed: {str(e)}", "raw_response": response}
+        parsed_json = json.loads(json_str)
+
+        # Ensure it contains required keys
+        if "name_of_employee" in parsed_json and "satisfaction" in parsed_json:
+            return parsed_json
+        else:
+            raise ValueError("Missing required keys in JSON")
+
+    except (json.JSONDecodeError, ValueError) as e:
+        return {
+            "error": f"JSON parsing failed: {str(e)}",
+            "raw_response": response,
+        }
 
 
 # Function for analysis
@@ -110,24 +123,24 @@ def analyze_conversation_tool(conversation):
     """Analyze the conversation JSON to determine satisfaction."""
     # Format the conversation as input text
     messages = [
-        f"Human: {msg['Human']} AI: {msg['AI']}" for msg in conversation]
+        f"Human: {msg.get('Human', '')} AI: {msg.get('AI', '')}" for msg in conversation
+    ]
     input_text = "\n".join(messages)
 
     # Combine the prompt and input text
     request = f"""
         You are an HR assistant bot tasked with analyzing employee satisfaction based on their conversation history.
         Your job is to:
-        1. Review the conversation between Human and AI to assess the tone, mood, and overall sentiment.
-        2. Determine the satisfaction level as one of the following: Bad, Average, Good.
-        3. Extract the employee's name if mentioned, otherwise leave it blank.
+        1. Determine the satisfaction level as one of the following: Bad, Average, Good.
+        2. Extract the employee's name if mentioned, otherwise leave it blank.
 
         Below are examples to guide you:
 
+        "I feel overwhelmed with my workload and don’t know where to start."
+        "Satisfaction": "Bad"
+
         "I’m so looking forward to our vacation trip."
         "Satisfaction": "Good"
-
-        "What a rough day, these tasks are really overwhelming."
-        "Satisfaction": "Bad"
 
         JUST Output a **SINGLE** JSON with the following format:
         {{
