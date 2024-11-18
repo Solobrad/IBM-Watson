@@ -1,8 +1,10 @@
 import streamlit as st
 import json
+import pandas as pd
+from fpdf import FPDF
+from io import BytesIO
 from chatbot import predict, get_session_history, analyze_chat_and_rate
 from db import init_db, insert_analysis, fetch_analysis
-import pandas as pd
 
 # Initialize the database
 init_db()
@@ -43,6 +45,36 @@ def clear_chat():
     st.session_state["initial_prompt_sent"] = False
 
 
+def export_to_pdf(dataframe):
+    """Export analysis data to a PDF file and return as bytes."""
+    if dataframe.empty:
+        raise ValueError("No data available to export.")
+
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+    pdf.cell(200, 10, txt="Employee Satisfaction Analysis Report", ln=True, align="C")
+    pdf.ln(10)
+
+    pdf.set_font("Arial", size=10, style="B")
+    pdf.cell(50, 10, "ID", border=1, align="C")
+    pdf.cell(70, 10, "Name", border=1, align="C")
+    pdf.cell(50, 10, "Satisfaction", border=1, align="C")
+    pdf.ln()
+
+    pdf.set_font("Arial", size=10)
+    for _, row in dataframe.iterrows():
+        pdf.cell(50, 10, str(row["ID"]), border=1, align="C")
+        pdf.cell(70, 10, str(row["Name"]), border=1, align="C")
+        pdf.cell(50, 10, str(row["Satisfaction"]), border=1, align="C")
+        pdf.ln()
+
+    pdf_buffer = BytesIO()
+    pdf.output(dest="S").encode("latin1")
+    pdf_buffer.write(pdf.output(dest="S").encode("latin1"))
+    pdf_buffer.seek(0)
+    return pdf_buffer
 # Add the Clear Chat button
 if st.button("Clear Chat"):
     clear_chat()
@@ -64,8 +96,7 @@ if st.session_state["name"] is None:
     if st.button("Check Name"):
         if user_name.strip():
             # Add user's response to the conversation
-            st.session_state["messages"].append(
-                {"Human": user_name, "AI": "Checking name..."})
+            st.session_state["messages"].append({"Human": user_name, "AI": "Checking name..."})
 
             # Fetch existing analysis data from the database
             analysis_data = fetch_analysis()
@@ -88,6 +119,17 @@ if st.session_state["name"] is None:
 # Step 2: Chat interface after name is provided
 if st.session_state["name"]:
     st.write(f"### Chat Interface for {st.session_state['name']}")
+
+    # Add a description explaining the purpose of the chat
+    st.markdown(
+        """
+        Use this chat to share your feelings about your work environment. 
+        Our AI assistant will engage with you to understand your experiences 
+        and sentiments regarding your workplace. Once you've shared enough information, 
+        you can analyze the conversation to evaluate your satisfaction level with the 
+        working environment. This will help us provide insights into employee satisfaction.
+        """
+    )
 
     # AI's initial question if not already asked
     if not st.session_state["initial_prompt_sent"]:
@@ -154,9 +196,21 @@ with col1:
     analysis_data = fetch_analysis()
 
     if analysis_data:
-        df = pd.DataFrame(analysis_data, columns=[
-                          "ID", "Name", "Satisfaction"])
+        df = pd.DataFrame(analysis_data, columns=["ID", "Name", "Satisfaction"])
         st.dataframe(df)
+        if not df.empty:
+            try:
+                pdf_buffer = export_to_pdf(df)
+                st.download_button(
+                    label="Download PDF Report",
+                    data=pdf_buffer,
+                    file_name="employee_satisfaction_report.pdf",
+                    mime="application/pdf",
+                )
+            except Exception as e:
+                st.error(f"Error generating PDF: {e}")
+        else:
+            st.warning("The analysis data is empty. No PDF will be generated.")
     else:
         st.warning("No analysis data available!")
 
