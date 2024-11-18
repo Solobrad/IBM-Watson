@@ -139,7 +139,7 @@ def analyze_conversation_tool(conversation):
         "I feel overwhelmed with my workload and don’t know where to start."
         "Satisfaction": "Bad"
 
-        "I’m so looking forward to our vacation trip."
+        "I enjoyed my vacation trip."
         "Satisfaction": "Good"
 
         JUST Output a **SINGLE** JSON with the following format:
