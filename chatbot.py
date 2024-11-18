@@ -92,22 +92,35 @@ def predict(human_msg: str, session_id: str = "default_session"):
 
 
 def sanitize_and_parse_json(response: str):
+    if not response or not response.strip():
+        return {"error": "Empty response from the LLM", "raw_response": response}
+
     try:
         # Attempt to find the JSON object in the response
         start = response.find("{")
         end = response.rfind("}") + 1
         json_str = response[start:end]
-        return json.loads(json_str)
-    except json.JSONDecodeError as e:
-        return {"error": f"JSON parsing failed: {str(e)}", "raw_response": response}
+        parsed_json = json.loads(json_str)
 
+        # Ensure it contains required keys
+        if "name_of_employee" in parsed_json and "satisfaction" in parsed_json:
+            return parsed_json
+        else:
+            raise ValueError("Missing required keys in JSON")
+
+    except (json.JSONDecodeError, ValueError) as e:
+        return {
+            "error": f"JSON parsing failed: {str(e)}",
+            "raw_response": response,
+        }
 
 # Function for analysis
 def analyze_conversation_tool(conversation):
     """Analyze the conversation JSON to determine satisfaction."""
     # Format the conversation as input text
     messages = [
-        f"Human: {msg['Human']} AI: {msg['AI']}" for msg in conversation]
+        f"Human: {msg.get('Human', '')} AI: {msg.get('AI', '')}" for msg in conversation
+    ]
     input_text = "\n".join(messages)
 
     # Combine the prompt and input text
@@ -118,29 +131,69 @@ def analyze_conversation_tool(conversation):
         2. Determine the satisfaction level as one of the following: Bad, Average, Good.
         3. Extract the employee's name if mentioned, otherwise leave it blank.
 
+        Pay special attention to words and phrases that indicate dissatisfaction or negative emotions, such as:
+        - "not feeling good"
+        - "stuck"
+        - "unsure"
+        - "worried"
+        - "not doing enough"
+        - "not good enough"
+
         Below are examples to guide you:
 
-        "I’m so looking forward to our vacation trip."
-        "Satisfaction": "Good"
+        Example 1:
+        Conversation:
+        "Human: I'm not feeling good about my current job. I'm worried about my future."
+        "AI: I'm sorry to hear that. Can I help with career advice?"
+        Output:
+        {{
+            "name_of_employee": "",
+            "satisfaction": "Bad"
+        }}
 
-        "What a rough day, these tasks are really overwhelming."
-        "Satisfaction": "Bad"
+        Example 2:
+        Conversation:
+        "Human: Good evening, I'm feeling optimistic about my new role."
+        "AI: That's wonderful to hear. Keep up the great work!"
+        Output:
+        {{
+            "name_of_employee": "",
+            "satisfaction": "Good"
+        }}
 
         JUST Output a **SINGLE** JSON with the following format:
         {{
-            "name_of_employee": "<>",
-            "satisfaction": "<>"
+            "name_of_employee": "<employee_name>",
+            "satisfaction": "<Bad, Average, or Good>"
         }}
 
         Conversation:
         {input_text}
+
+        IMPORTANT: Ensure the output is a valid JSON object with no additional text or comments.
     """
 
-    # Invoke the LLM
-    response = llm.invoke(request)
+    try:
+        # Invoke the LLM
+        response = llm.invoke(request)
 
-    # Sanitize and parse the response
-    return sanitize_and_parse_json(response)
+        # Log raw response for debugging
+        print("Debug: Raw LLM Response:", response)
+
+        # Sanitize and parse the response
+        result = sanitize_and_parse_json(response)
+
+        # Ensure the result contains required keys
+        if "name_of_employee" in result and "satisfaction" in result:
+            return result
+        else:
+            raise ValueError("Missing required keys in the JSON response.")
+    except Exception as e:
+        # Handle any exceptions gracefully
+        return {
+            "error": f"Failed to analyze conversation: {str(e)}",
+            "raw_response": response if 'response' in locals() else None,
+        }
 
 
 # Function to analyze and generate satisfaction JSON
