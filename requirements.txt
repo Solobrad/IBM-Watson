@@ -7,3 +7,4 @@ tiktoken
 python-dotenv
 streamlit
 pandas
+fpdf
